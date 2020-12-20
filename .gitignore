@@ -1,0 +1,6 @@
+/.idea/
+/venv/
+/trained_model/
+/labelbin.dat
+*.log
+training.png
