@@ -3,7 +3,6 @@ import re
 from collections import namedtuple
 from functools import reduce
 from itertools import cycle
-from pathlib import Path
 
 import matplotlib
 
@@ -18,9 +17,8 @@ from smallervggnet import SmallerVGGNet
 import matplotlib.pyplot as plt
 import numpy as np
 import random
-import cv2
-import logging
-from typing import Union
+from cv2 import cv2
+from _common import get_logger, root, DATASET_DIR, MODEL_OUTPUT, LABELBIN_OUTPUT, IMAGE_DIMENSIONS
 
 
 PokemonInfo = namedtuple('PokemonInfo', 'id is_shiny form_id path')
@@ -28,13 +26,11 @@ IMAGE_FILE_TO_PROCESS_00 = re.compile(r'pokemon_icon_(?:pm|)(\d{3,4})_(\d+)(_shi
 IMAGE_FILE_TO_PROCESS_NORMAL = re.compile(r'pokemon_icon_(?:pm|)(\d{3,4})(?:_00)_(\d+)(_shiny|)\.png')
 
 
+logger = get_logger('training')
+
+
 class Trainer:
-	__root = Path(__file__).parent
-	DATASET_DIR = __root / 'submodules/PogoAssets/pokemon_icons'
-	MODEL_OUTPUT = __root / 'trained_model'
-	LABELBIN_OUTPUT = __root / 'labelbin.dat'
-	LOG_PATH = __root / 'training.log'
-	PLOT_OUTPUT = __root / 'training.png'
+	PLOT_OUTPUT = root / 'training.png'
 
 	def __init__(self, *, epochs=200, initial_learning_rate=0.001, batch_size=32):
 		self.epochs = epochs
@@ -44,32 +40,9 @@ class Trainer:
 		self.data = []
 		self.labels = []
 
-		self.image_dimensions = None
-
-		self.logger = self._get_logger('training', LOG_PATH=self.LOG_PATH)
-
-	@staticmethod
-	def _get_logger(
-			name: str,
-			level: Union[str, int] = logging.INFO,
-			fmt: str = '[%(asctime)-15s] [%(levelname)s] %(module)s > %(message)s',
-			LOG_PATH = None,
-	) -> logging.Logger:
-		logging.basicConfig(level=level, format=fmt)
-
-		logger = logging.getLogger(name)
-		logger.setLevel(level)
-
-		if LOG_PATH:
-			file_handler = logging.FileHandler(LOG_PATH)
-			file_handler.setFormatter(logging.Formatter(fmt=fmt))
-			logger.addHandler(file_handler)
-
-		return logger
-
 	def _list_images(self):
-		self.logger.info("loading images...")
-		for p in self.DATASET_DIR.glob('pokemon_icon_*.png'):
+		logger.info("loading images...")
+		for p in DATASET_DIR.glob('pokemon_icon_*.png'):
 			if p.stem.startswith('pokemon_icon_pm'):
 				name = p.stem[15:]
 			elif p.stem.startswith('pokemon_icon_'):
@@ -103,9 +76,7 @@ class Trainer:
 		for info in image_infos:
 			# pre-process images and update data and label lists
 			image = cv2.imread(str(info.path), cv2.IMREAD_UNCHANGED)
-			if not self.image_dimensions:
-				self.image_dimensions = image.shape
-			image = cv2.resize(image, (self.image_dimensions[1], self.image_dimensions[0]))
+			image = cv2.resize(image, (IMAGE_DIMENSIONS[1], IMAGE_DIMENSIONS[0]))
 			image = img_to_array(image)
 
 			self.data.append(image)
@@ -114,7 +85,7 @@ class Trainer:
 		# scale the raw pixel intensities to the range [0, 1]
 		self.data = np.array(self.data, dtype="float") / 255.0
 		self.labels = np.array(self.labels)
-		self.logger.info("data matrix: {:.2f}MB".format(self.data.nbytes / (1024 * 1000.0)))
+		logger.info("data matrix: {:.2f}MB".format(self.data.nbytes / (1024 * 1000.0)))
 
 	def _start_training(self):
 		# binarize the labels
@@ -129,13 +100,13 @@ class Trainer:
 			shear_range=0.2, zoom_range=0.2, horizontal_flip=True, fill_mode="nearest")
 
 		# initialize the model
-		self.logger.info("compiling model...")
-		model = SmallerVGGNet.build(width=self.image_dimensions[1], height=self.image_dimensions[0], depth=self.image_dimensions[2], classes=len(lb.classes_))
+		logger.info("compiling model...")
+		model = SmallerVGGNet.build(width=IMAGE_DIMENSIONS[1], height=IMAGE_DIMENSIONS[0], depth=IMAGE_DIMENSIONS[2], classes=len(lb.classes_))
 		opt = Adam(lr=self.init_lr, decay=self.init_lr / self.epochs)
 		model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
 
 		# train the network
-		self.logger.info("training network...")
+		logger.info("training network...")
 		return lb, model, model.fit(
 			datagen.flow(trainX, trainY, batch_size=self.bs),
 			validation_data=(testX, testY),
@@ -146,54 +117,54 @@ class Trainer:
 
 	def _save(self, lb, model, H):
 		# save the results to disk
-		self.logger.info("serializing network...")
-		model.save(self.MODEL_OUTPUT)
+		logger.info("serializing network...")
+		model.save(MODEL_OUTPUT)
 
-		self.logger.info("serializing label binarizer...")
-		with open(self.LABELBIN_OUTPUT, 'wb') as f:
+		logger.info("serializing label binarizer...")
+		with open(LABELBIN_OUTPUT, 'wb') as f:
 			f.write(pickle.dumps(lb))
 
-		self.logger.info("Plotting figure:")
+		logger.info("Plotting figure:")
 		self._plot_data(H.history, ['acc', 'accuracy'])
 
 	def _plot_data(self, data, draw_on_secondary_axis=None):
-			colors = cycle(matplotlib.rcParams['axes.prop_cycle'].by_key().get('color', ['k']))
+		colors = cycle(matplotlib.rcParams['axes.prop_cycle'].by_key().get('color', ['k']))
 
-			draw_on_secondary_axis = draw_on_secondary_axis or []
+		draw_on_secondary_axis = draw_on_secondary_axis or []
 
-			data = {k: v for k, v in data.items() if any(v)}
-			lines = []
+		data = {k: v for k, v in data.items() if any(v)}
+		lines = []
 
-			plt.style.use("ggplot")
-			plt.figure()
-			N = self.epochs
+		plt.style.use("ggplot")
+		plt.figure()
+		N = self.epochs
 
-			fig, ax1 = plt.subplots()
-			ax2 = ax1.twinx()
-			for key in draw_on_secondary_axis:
-				if key not in data:
-					continue
+		fig, ax1 = plt.subplots()
+		ax2 = ax1.twinx()
+		for key in draw_on_secondary_axis:
+			if key not in data:
+				continue
 
-				lines.append(
-					ax2.plot(np.arange(0, N), data[key], label=key, color=next(colors))
-				)
+			lines.append(
+				ax2.plot(np.arange(0, N), data[key], label=key, color=next(colors))
+			)
 
-			for key in data:
-				if key in draw_on_secondary_axis:
-					continue
+		for key in data:
+			if key in draw_on_secondary_axis:
+				continue
 
-				lines.append(
-					ax1.plot(np.arange(0, N), data[key], label=key, color=next(colors))
-				)
+			lines.append(
+				ax1.plot(np.arange(0, N), data[key], label=key, color=next(colors))
+			)
 
-			plt.title("Training Loss and Accuracy")
-			plt.xlabel("Epoch #")
-			plt.ylabel("Loss/Accuracy")
+		plt.title("Training Loss and Accuracy")
+		plt.xlabel("Epoch #")
+		plt.ylabel("Loss/Accuracy")
 
-			lines = reduce(lambda x, y: x + y, lines[1:], lines[0])
-			labels = [l.get_label() for l in lines]
-			ax1.legend(lines, labels, loc="upper left")
-			plt.savefig(self.PLOT_OUTPUT)
+		lines = reduce(lambda x, y: x + y, lines[1:], lines[0])
+		labels = [l.get_label() for l in lines]
+		ax1.legend(lines, labels, loc="upper left")
+		plt.savefig(self.PLOT_OUTPUT)
 
 
 if __name__ == '__main__':
