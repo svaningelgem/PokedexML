@@ -6,8 +6,12 @@ import requests
 from requests import exceptions
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-q", "--query", required=True, help="search query to search Bing Image API for")
-ap.add_argument("-o", "--output", required=True, help="path to output directory of images")
+ap.add_argument(
+    "-q", "--query", required=True, help="search query to search Bing Image API for"
+)
+ap.add_argument(
+    "-o", "--output", required=True, help="path to output directory of images"
+)
 args = vars(ap.parse_args())
 
 # need to update API_KEY everytime it expires
@@ -46,12 +50,16 @@ total = 0
 # loop over the estimated number of results in `GROUP_SIZE` groups
 for offset in range(0, estNumResults, GROUP_SIZE):
     # make the request to fetch the results
-    print(f"[INFO] making request for group {offset}-{offset + GROUP_SIZE} of {estNumResults}...")
+    print(
+        f"[INFO] making request for group {offset}-{offset + GROUP_SIZE} of {estNumResults}..."
+    )
     params["offset"] = offset
     search = requests.get(URL, headers=headers, params=params)
     search.raise_for_status()
     results = search.json()
-    print(f"[INFO] saving images for group {offset}-{offset + GROUP_SIZE} of {estNumResults}...")
+    print(
+        f"[INFO] saving images for group {offset}-{offset + GROUP_SIZE} of {estNumResults}..."
+    )
 
     # save images in the current batch
     for v in results["value"]:

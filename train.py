@@ -12,17 +12,29 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
-from _common import DATASET_DIR, IMAGE_DIMENSIONS, LABELBIN_OUTPUT, MODEL_OUTPUT, get_logger, root
 from cv2 import cv2
 from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator, img_to_array
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
+
+from _common import (
+    DATASET_DIR,
+    IMAGE_DIMENSIONS,
+    LABELBIN_OUTPUT,
+    MODEL_OUTPUT,
+    get_logger,
+    root,
+)
 from smallervggnet import SmallerVGGNet
 
 PokemonInfo = namedtuple("PokemonInfo", "id is_shiny form_id path")
-IMAGE_FILE_TO_PROCESS_00 = re.compile(r"pokemon_icon_(?:pm|)(\d{3,4})_(\d+)(_shiny|)\.png")
-IMAGE_FILE_TO_PROCESS_NORMAL = re.compile(r"pokemon_icon_(?:pm|)(\d{3,4})(?:_00)_(\d+)(_shiny|)\.png")
+IMAGE_FILE_TO_PROCESS_00 = re.compile(
+    r"pokemon_icon_(?:pm|)(\d{3,4})_(\d+)(_shiny|)\.png"
+)
+IMAGE_FILE_TO_PROCESS_NORMAL = re.compile(
+    r"pokemon_icon_(?:pm|)(\d{3,4})(?:_00)_(\d+)(_shiny|)\.png"
+)
 
 
 logger = get_logger("training")
@@ -92,7 +104,9 @@ class Trainer:
         labels = lb.fit_transform(self.labels)
 
         # 80% for training and 20% for testing
-        (trainX, testX, trainY, testY) = train_test_split(self.data, labels, test_size=0.2, random_state=42)
+        (trainX, testX, trainY, testY) = train_test_split(
+            self.data, labels, test_size=0.2, random_state=42
+        )
 
         # construct the image generator for data augmentation
         datagen = ImageDataGenerator(
@@ -108,10 +122,15 @@ class Trainer:
         # initialize the model
         logger.info("compiling model...")
         model = SmallerVGGNet.build(
-            width=IMAGE_DIMENSIONS[1], height=IMAGE_DIMENSIONS[0], depth=IMAGE_DIMENSIONS[2], classes=len(lb.classes_)
+            width=IMAGE_DIMENSIONS[1],
+            height=IMAGE_DIMENSIONS[0],
+            depth=IMAGE_DIMENSIONS[2],
+            classes=len(lb.classes_),
         )
         opt = Adam(lr=self.init_lr, decay=self.init_lr / self.epochs)
-        model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
+        model.compile(
+            loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"]
+        )
 
         # train the network
         logger.info("training network...")
@@ -140,7 +159,9 @@ class Trainer:
         self._plot_data(H.history, ["acc", "accuracy"])
 
     def _plot_data(self, data, draw_on_secondary_axis=None):
-        colors = cycle(matplotlib.rcParams["axes.prop_cycle"].by_key().get("color", ["k"]))
+        colors = cycle(
+            matplotlib.rcParams["axes.prop_cycle"].by_key().get("color", ["k"])
+        )
 
         draw_on_secondary_axis = draw_on_secondary_axis or []
 
@@ -157,13 +178,17 @@ class Trainer:
             if key not in data:
                 continue
 
-            lines.append(ax2.plot(np.arange(0, N), data[key], label=key, color=next(colors)))
+            lines.append(
+                ax2.plot(np.arange(0, N), data[key], label=key, color=next(colors))
+            )
 
         for key in data:
             if key in draw_on_secondary_axis:
                 continue
 
-            lines.append(ax1.plot(np.arange(0, N), data[key], label=key, color=next(colors)))
+            lines.append(
+                ax1.plot(np.arange(0, N), data[key], label=key, color=next(colors))
+            )
 
         plt.title("Training Loss and Accuracy")
         plt.xlabel("Epoch #")
