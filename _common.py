@@ -13,7 +13,9 @@ IMAGE_DIMENSIONS = cv2.imread(__first_image, cv2.IMREAD_UNCHANGED).shape
 
 
 def get_logger(
-    name: str, level: str | int = logging.INFO, fmt: str = "[%(asctime)-15s] [%(levelname)s] %(module)s > %(message)s"
+    name: str,
+    level: str | int = logging.INFO,
+    fmt: str = "[%(asctime)-15s] [%(levelname)s] %(module)s > %(message)s",
 ) -> logging.Logger:
     logging.basicConfig(level=level, format=fmt)
 

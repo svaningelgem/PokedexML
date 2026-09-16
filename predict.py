@@ -2,10 +2,11 @@ import pickle
 from pathlib import Path
 
 import numpy as np
-from _common import IMAGE_DIMENSIONS, LABELBIN_OUTPUT, MODEL_OUTPUT, get_logger
 from cv2 import cv2
 from keras.models import load_model
 from keras.preprocessing.image import img_to_array
+
+from _common import IMAGE_DIMENSIONS, LABELBIN_OUTPUT, MODEL_OUTPUT, get_logger
 
 logger = get_logger("predict")
 
@@ -35,7 +36,9 @@ class Predict:
         y_preds = list(reversed(np.argsort(proba)))
         y_preds[0]
         for idx, top_x in enumerate(y_preds[:10]):
-            logger.info(f"Prediction {idx}: {self.lb.classes_[top_x]} ({proba[top_x] * 100.0:.2f}%)")
+            logger.info(
+                f"Prediction {idx}: {self.lb.classes_[top_x]} ({proba[top_x] * 100.0:.2f}%)"
+            )
         #
         # # we'll mark our prediction as "correct" of the input image filename
         # # contains the predicted label text (obviously this makes the
